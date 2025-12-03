@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexiRoot | AI Etymology Explorer</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #818cf8;
+            --accent: #c7d2fe;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-light: #64748b;
+            
+            /* Root Color Codes */
+            --prefix-col: #ef4444; /* Red */
+            --root-col: #10b981;   /* Green */
+            --suffix-col: #f59e0b; /* Orange */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        header { text-align: center; margin-bottom: 1.5rem; }
+        h1 { font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; letter-spacing: -1px; }
+        p.subtitle { color: var(--text-light); }
+
+        /* API Key Section */
+        .api-section {
+            width: 100%;
+            max-width: 600px;
+            background: #e0e7ff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border: 1px solid var(--accent);
+        }
+        .api-section label { font-weight: bold; font-size: 0.9rem; white-space: nowrap; }
+        .api-section input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        /* Search Container */
+        .search-container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            gap: 10px;
+            background: var(--card-bg);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+        }
+
+        .main-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .main-input:focus { border-color: var(--primary); }
+
+        button.search-btn {
+            padding: 12px 24px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        button.search-btn:hover { background-color: var(--primary-dark); }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Results Area */
+        #result-area {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 2rem;
+            display: none; 
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Top Section: Word & Definition */
+        .word-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .the-word { font-size: 2.5rem; font-weight: 800; color: var(--text-main); text-transform: capitalize; }
+        .phonetic { font-family: monospace; color: var(--text-light); font-size: 1.1rem; }
+        .pos { font-style: italic; color: var(--primary); font-weight: 600; margin-top: 5px; }
+        
+        .definition { font-size: 1.1rem; line-height: 1.6; margin-bottom: 1rem; }
+        .example { background: var(--bg); padding: 10px; border-left: 4px solid var(--secondary); font-style: italic; color: var(--text-light); border-radius: 4px; }
+
+        /* Breakdown Section */
+        .breakdown-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        .morpheme-card {
+            background: #fff;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 1rem;
+            min-width: 150px;
+            flex: 1;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .morpheme-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 5px;
+        }
+
+        .type-prefix::before { background: var(--prefix-col); }
+        .type-root::before { background: var(--root-col); }
+        .type-suffix::before { background: var(--suffix-col); }
+
+        .m-part { font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; display: block; }
+        .m-meaning { font-size: 1rem; color: var(--text-main); font-weight: 600; margin-bottom: 5px; display: block; }
+        .m-origin { font-size: 0.85rem; color: var(--text-light); display: block; }
+        
+        .m-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .badge-prefix { background-color: var(--prefix-col); }
+        .badge-root { background-color: var(--root-col); }
+        .badge-suffix { background-color: var(--suffix-col); }
+
+        /* Error Message */
+        .error-msg {
+            color: #ef4444;
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: bold;
+            display: none;
+            background: #fee2e2;
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Footer info */
+        .info-note {
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>LexiRoot AI</h1>
+        <p class="subtitle">Etymology & Morphology Explorer (Powered by Gemini)</p>
+    </header>
+
+    <!-- API Key Input -->
+    <div class="api-section">
+        <label for="apiKey">Gemini API Key:</label>
+        <input type="password" id="apiKey" placeholder="Paste your key here (starts with AIza...)" autocomplete="off">
+    </div>
+
+    <!-- Main Search -->
+    <div class="search-container">
+        <input type="text" id="searchInput" class="main-input" placeholder="Type a word (e.g., photosynthesis, incredible)...">
+        <button class="search-btn" id="analyzeBtn">Analyze</button>
+    </div>
+
+    <div id="loader" class="loader"></div>
+    <div id="error-msg" class="error-msg"></div>
+
+    <main id="result-area">
+        <!-- Main Definition Card -->
+        <section class="card">
+            <div class="word-header">
+                <div>
+                    <div class="the-word" id="disp-word">Word</div>
+                    <div class="pos" id="disp-pos">noun</div>
+                </div>
+                <div class="phonetic" id="disp-phonetic">/wɜːrd/</div>
+            </div>
+            <div class="definition" id="disp-def">Definition goes here.</div>
+            <div class="example" id="disp-ex">"Example sentence goes here."</div>
+        </section>
+
+        <!-- Root Breakdown Card -->
+        <section class="card">
+            <h3>Morphological Breakdown</h3>
+            <p style="color:var(--text-light); margin-bottom:15px;">Word structure analysis:</p>
+            <div class="breakdown-container" id="breakdown-container">
+                <!-- Javascript will inject cards here -->
+            </div>
+        </section>
+    </main>
+    
+    <div class="info-note">
+        Note: The API key is used directly in the browser request and is not stored on any server.
+    </div>
+
+    <script>
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const searchInput = document.getElementById('searchInput');
+        const apiKeyInput = document.getElementById('apiKey');
+        const loader = document.getElementById('loader');
+        const resultArea = document.getElementById('result-area');
+        const errorMsg = document.getElementById('error-msg');
+        
+        // Display Elements
+        const dispWord = document.getElementById('disp-word');
+        const dispPos = document.getElementById('disp-pos');
+        const dispPhonetic = document.getElementById('disp-phonetic');
+        const dispDef = document.getElementById('disp-def');
+        const dispEx = document.getElementById('disp-ex');
+        const breakdownContainer = document.getElementById('breakdown-container');
+
+        // Handle Enter Key
+        searchInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                analyzeBtn.click();
+            }
+        });
+
+        analyzeBtn.addEventListener('click', async () => {
+            const word = searchInput.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+
+            // Validation
+            if (!apiKey) {
+                showError("Please enter your Google Gemini API Key.");
+                return;
+            }
+            if (!word) {
+                showError("Please enter a word to analyze.");
+                return;
+            }
+
+            // Reset UI
+            hideError();
+            resultArea.style.display = 'none';
+            loader.style.display = 'block';
+            analyzeBtn.disabled = true;
+
+            try {
+                const data = await fetchWordData(word, apiKey);
+                renderData(data);
+                loader.style.display = 'none';
+                resultArea.style.display = 'block';
+            } catch (error) {
+                console.error(error);
+                loader.style.display = 'none';
+                showError(error.message || "Failed to analyze word. Please check your API key and try again.");
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        async function fetchWordData(word, key) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+
+            // We ask for a strict JSON format
+            const promptText = `
+                Analyze the English word '${word}'.
+                Return a JSON object ONLY. Do not include markdown formatting (like \`\`\`json).
+                The JSON must strictly follow this structure:
+                {
+                    "word": "${word}",
+                    "phonetic": "IPA pronunciation",
+                    "pos": "part of speech",
+                    "definition": "A clear, concise definition.",
+                    "sentence": "A good example sentence using the word.",
+                    "breakdown": [
+                        {
+                            "part": "morpheme text (e.g., 'bio')",
+                            "type": "prefix OR root OR suffix",
+                            "meaning": "meaning of this part",
+                            "origin": "language of origin (e.g., Greek)"
+                        }
+                    ]
+                }
+                If the word is not a valid English word, return a JSON with a key "error": "Word not found".
+            `;
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: promptText }]
+                }]
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "API Request Failed");
+            }
+
+            const data = await response.json();
+            
+            // Parse Gemini's text response
+            try {
+                let rawText = data.candidates[0].content.parts[0].text;
+                // clean up markdown code blocks if Gemini adds them
+                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const jsonResult = JSON.parse(rawText);
+                
+                if(jsonResult.error) {
+                    throw new Error(jsonResult.error);
+                }
+                
+                return jsonResult;
+            } catch (e) {
+                throw new Error("Failed to parse AI response. Try again.");
+            }
+        }
+
+        function renderData(data) {
+            dispWord.textContent = data.word;
+            dispPos.textContent = data.pos;
+            dispPhonetic.textContent = data.phonetic;
+            dispDef.textContent = data.definition;
+            dispEx.textContent = `"${data.sentence}"`;
+
+            // Clear previous breakdown
+            breakdownContainer.innerHTML = '';
+
+            data.breakdown.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `morpheme-card type-${item.type.toLowerCase()}`;
+                
+                // Determine badge class
+                let badgeClass = 'badge-root';
+                if(item.type.toLowerCase().includes('prefix')) badgeClass = 'badge-prefix';
+                if(item.type.toLowerCase().includes('suffix')) badgeClass = 'badge-suffix';
+
+                card.innerHTML = `
+                    <span class="m-badge ${badgeClass}">${item.type}</span>
+                    <span class="m-part">-${item.part}-</span>
+                    <span class="m-meaning">${item.meaning}</span>
+                    <span class="m-origin">from ${item.origin}</span>
+                `;
+                breakdownContainer.appendChild(card);
+            });
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMsg.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
